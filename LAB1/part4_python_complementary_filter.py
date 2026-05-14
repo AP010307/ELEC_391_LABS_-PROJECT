@@ -3,9 +3,11 @@ import time
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# ── CONFIG ──────────────────────────────────────────────
 PORT = 'COM3'
 BAUD = 115200
 DURATION = 15
+# ────────────────────────────────────────────────────────
 
 def record(filename, k_value):
     input(f"\nSet k = {k_value} in Arduino, upload, then press Enter to record...")
@@ -20,13 +22,17 @@ def record(filename, k_value):
     start = time.time()
     while time.time() - start < DURATION:
         raw = ser.readline().decode('utf-8').strip()
-        if raw and not raw.startswith('time'):
-            print(raw)
-            lines.append(raw)
+        if raw and not raw.startswith('accel') and not raw.startswith('Started') \
+                and not raw.startswith('Gyro') and not raw.startswith('Accel'):
+            parts = raw.split(',')
+            if len(parts) == 6:
+                timestamp = round((time.time() - start) * 1000)
+                lines.append(f"{timestamp},{raw}")
+                print(f"{timestamp},{raw}")
     ser.close()
 
     with open(filename, 'w') as f:
-        f.write('time_ms,accel_angle,gyro_angle,comp_angle\n')
+        f.write('time_ms,accel_roll,accel_pitch,gyro_roll,gyro_pitch,roll_angle,pitch_angle\n')
         for l in lines:
             f.write(l + '\n')
     print(f"Saved to {filename}")
@@ -34,9 +40,9 @@ def record(filename, k_value):
 def plot_k(filename, k_value, ax):
     df = pd.read_csv(filename)
     df['time_s'] = df['time_ms'] / 1000.0
-    ax.plot(df['time_s'], df['accel_angle'], color='blue', linewidth=0.8,  label='Accelerometer')
-    ax.plot(df['time_s'], df['gyro_angle'],  color='red',  linewidth=0.8,  label='Gyroscope')
-    ax.plot(df['time_s'], df['comp_angle'],  color='green', linewidth=1.2, label='Complementary')
+    ax.plot(df['time_s'], df['accel_roll'], color='blue',  linewidth=0.8, label='Accelerometer')
+    ax.plot(df['time_s'], df['gyro_roll'],  color='red',   linewidth=0.8, label='Gyroscope')
+    ax.plot(df['time_s'], df['roll_angle'], color='green', linewidth=1.2, label='Complementary')
     ax.axhline(0,  color='gray',  linestyle='--', linewidth=0.6)
     ax.axhline(30, color='black', linestyle='--', linewidth=0.6)
     ax.set_title(f'k = {k_value}')
