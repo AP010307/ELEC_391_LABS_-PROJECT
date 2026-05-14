@@ -1,0 +1,68 @@
+import serial
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from collections import deque
+
+# Change COM port to match your Arduino
+PORT = 'COM3'  # On Mac/Linux: '/dev/ttyACM0' or similar
+BAUD = 115200
+MAX_POINTS = 500  # Rolling window
+
+ser = serial.Serial(PORT, BAUD, timeout=1)
+
+times = deque(maxlen=MAX_POINTS)
+accel_angles = deque(maxlen=MAX_POINTS)
+gyro_angles = deque(maxlen=MAX_POINTS)
+comp_angles = deque(maxlen=MAX_POINTS)
+
+fig, ax = plt.subplots()
+line_a, = ax.plot([], [], label='Accelerometer', color='blue')
+line_g, = ax.plot([], [], label='Gyroscope', color='red')
+line_c, = ax.plot([], [], label='Complementary', color='green')
+
+ax.set_xlabel('Time (ms)')
+ax.set_ylabel('Angle (degrees)')
+ax.set_title('IMU Angle Estimation - Real Time')
+ax.legend()
+ax.grid(True)
+
+def init():
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-180, 180)
+    return line_a, line_g, line_c
+
+def update(frame):
+    try:
+        line_raw = ser.readline().decode('utf-8').strip()
+        # Skip header line
+        if line_raw.startswith('time') or line_raw == '':
+            return line_a, line_g, line_c
+
+        parts = line_raw.split(',')
+        if len(parts) != 4:
+            return line_a, line_g, line_c
+
+        t, a, g, c = float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3])
+        times.append(t)
+        accel_angles.append(a)
+        gyro_angles.append(g)
+        comp_angles.append(c)
+
+        line_a.set_data(times, accel_angles)
+        line_g.set_data(times, gyro_angles)
+        line_c.set_data(times, comp_angles)
+
+        ax.set_xlim(min(times), max(times) + 1)
+        ax.set_ylim(min(min(accel_angles), min(gyro_angles), min(comp_angles)) - 5,
+                    max(max(accel_angles), max(gyro_angles), max(comp_angles)) + 5)
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+    return line_a, line_g, line_c
+
+ani = animation.FuncAnimation(fig, update, init_func=init, interval=10, blit=False)
+plt.tight_layout()
+plt.show()
+
+ser.close()
