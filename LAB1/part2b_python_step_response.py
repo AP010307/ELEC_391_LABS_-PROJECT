@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 PORT = 'COM3'
 BAUD = 115200
 OUTPUT_FILE = 'part2_step.csv'
-DURATION = 15  # a few seconds at 0°, then move to 30°, hold
+DURATION = 15
 # ────────────────────────────────────────────────────────
 
 # ── RECORD ──────────────────────────────────────────────
@@ -21,18 +21,24 @@ print("  3s–15s → Hold at 30°")
 
 lines = []
 start = time.time()
+
 while time.time() - start < DURATION:
     raw = ser.readline().decode('utf-8').strip()
-    if raw and not raw.startswith('time'):
-        print(raw)
-        lines.append(raw)
+    if raw and not raw.startswith('accel') and not raw.startswith('Started') \
+            and not raw.startswith('Gyro') and not raw.startswith('Accel'):
+        parts = raw.split(',')
+        if len(parts) == 6:
+            timestamp = round((time.time() - start) * 1000)
+            lines.append(f"{timestamp},{raw}")
+            print(f"{timestamp},{raw}")
+
 ser.close()
 
 with open(OUTPUT_FILE, 'w') as f:
-    f.write('time_ms,accel_angle,gyro_angle\n')
+    f.write('time_ms,accel_roll,accel_pitch,gyro_roll,gyro_pitch,roll_angle,pitch_angle\n')
     for l in lines:
         f.write(l + '\n')
-print(f"Saved to {OUTPUT_FILE}")
+print(f"\nSaved to {OUTPUT_FILE}")
 
 # ── LOAD ─────────────────────────────────────────────────
 df = pd.read_csv(OUTPUT_FILE)
@@ -40,9 +46,9 @@ df['time_s'] = df['time_ms'] / 1000.0
 
 # ── PLOT ─────────────────────────────────────────────────
 plt.figure(figsize=(10, 5))
-plt.plot(df['time_s'], df['accel_angle'], color='blue', linewidth=0.8, label='Accelerometer')
-plt.plot(df['time_s'], df['gyro_angle'],  color='red',  linewidth=0.8, label='Gyroscope')
-plt.axhline(0,  color='gray', linestyle='--', linewidth=0.7, label='0° target')
+plt.plot(df['time_s'], df['accel_roll'], color='blue', linewidth=0.8, label='Accelerometer Roll')
+plt.plot(df['time_s'], df['gyro_roll'],  color='red',  linewidth=0.8, label='Gyroscope Roll')
+plt.axhline(0,  color='gray',  linestyle='--', linewidth=0.7, label='0° target')
 plt.axhline(30, color='black', linestyle='--', linewidth=0.7, label='30° target')
 plt.xlabel('Time (s)')
 plt.ylabel('Angle (°)')
