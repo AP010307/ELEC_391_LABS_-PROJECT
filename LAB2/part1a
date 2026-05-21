@@ -1,0 +1,36 @@
+const int LEFT_IN1 = 3, LEFT_IN2 = 5;
+const int LEFT_ENC_A = 2, LEFT_ENC_B = 4;
+
+volatile long encoderCount = 0;
+
+void encoderISR() {
+  if (digitalRead(LEFT_ENC_B) == HIGH) encoderCount++;
+  else encoderCount--;
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LEFT_IN1, OUTPUT);
+  pinMode(LEFT_IN2, OUTPUT);
+  pinMode(LEFT_ENC_A, INPUT);
+  pinMode(LEFT_ENC_B, INPUT);
+  attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A), encoderISR, RISING);
+}
+
+void loop() {
+  for (int pwm = 0; pwm <= 255; pwm++) {
+    encoderCount = 0;
+    analogWrite(LEFT_IN1, pwm);
+    analogWrite(LEFT_IN2, 0);    // brake-mode forward
+    delay(500);                   // give the motor time to react
+    
+    Serial.print("PWM: "); Serial.print(pwm);
+    Serial.print("  Counts: "); Serial.println(encoderCount);
+    
+    if (encoderCount > 10) {       // threshold: motor is definitely moving
+      Serial.print(">>> DEADBAND DETECTED AT PWM = ");
+      Serial.println(pwm);
+      while (1);  // stop here so you can read it
+    }
+  }
+}
