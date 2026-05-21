@@ -1,65 +1,118 @@
 
-// pins - might need to change
-const int LEFT_ENC_A = 2, LEFT_ENC_B = 4;
-const int RIGHT_ENC_A = 7, RIGHT_ENC_B = 8;
+// Encoder pins (yellow = A, white = B from Pololu wire colors)
+const int LEFT_ENC_A  = 2;   // EDIT if wired differently
+const int LEFT_ENC_B  = 4;   // EDIT if wired differently
+const int RIGHT_ENC_A = 7;   // EDIT if wired differently
+const int RIGHT_ENC_B = 8;   // EDIT if wired differently
 
-volatile long leftCount = 0;
+// Motor driver input pins (DRV8871 IN1, IN2)
+// Only used here to force motors OFF during the manual test
+const int LEFT_IN1  = 3;     // EDIT if wired differently
+const int LEFT_IN2  = 5;     // EDIT if wired differently
+const int RIGHT_IN1 = 6;     // EDIT if wired differently
+const int RIGHT_IN2 = 9;     // EDIT if wired differently
+
+// ---------- ENCODER COUNT VARIABLES ----------
+// 'volatile' is required because these are modified inside ISRs
+volatile long leftCount  = 0;
 volatile long rightCount = 0;
 
-// Full ×4 quadrature: interrupt on both edges of both channels
+// ============================================================
+//  INTERRUPT SERVICE ROUTINES (ISRs)
+//  Full x4 quadrature: interrupts fire on both edges of A and B.
+//  Direction logic compares A and B levels at the moment of edge.
+//
+//  NOTE: If you turn a wheel FORWARD and the count goes DOWN,
+//  swap the ++ and -- in that motor's two ISRs.
+//  (Or just swap the A and B wires on that encoder - easier.)
+// ============================================================
+
 void leftA_ISR() {
   if (digitalRead(LEFT_ENC_A) == digitalRead(LEFT_ENC_B)) leftCount--;
   else leftCount++;
 }
+
 void leftB_ISR() {
   if (digitalRead(LEFT_ENC_A) == digitalRead(LEFT_ENC_B)) leftCount++;
   else leftCount--;
 }
+
 void rightA_ISR() {
   if (digitalRead(RIGHT_ENC_A) == digitalRead(RIGHT_ENC_B)) rightCount--;
   else rightCount++;
 }
+
 void rightB_ISR() {
   if (digitalRead(RIGHT_ENC_A) == digitalRead(RIGHT_ENC_B)) rightCount++;
   else rightCount--;
 }
 
+// ============================================================
+//  SETUP
+// ============================================================
+
 void setup() {
   Serial.begin(115200);
-  pinMode(LEFT_ENC_A, INPUT);
-  pinMode(LEFT_ENC_B, INPUT);
+  while (!Serial) { ; }   // wait for serial monitor (optional)
+
+  // Encoder pins as inputs
+  // If counts look flaky or stuck, try INPUT_PULLUP instead of INPUT
+  pinMode(LEFT_ENC_A,  INPUT);
+  pinMode(LEFT_ENC_B,  INPUT);
   pinMode(RIGHT_ENC_A, INPUT);
   pinMode(RIGHT_ENC_B, INPUT);
 
-  pinMode(LEFT_IN1, OUTPUT);  
-  pinMode(LEFT_IN2, OUTPUT);
-  pinMode(RIGHT_IN1, OUTPUT); 
+  // Force motors OFF (safety - in case pins were in an unknown state)
+  pinMode(LEFT_IN1,  OUTPUT);
+  pinMode(LEFT_IN2,  OUTPUT);
+  pinMode(RIGHT_IN1, OUTPUT);
   pinMode(RIGHT_IN2, OUTPUT);
-  analogWrite(LEFT_IN1, 0);   
-  analogWrite(LEFT_IN2, 0);
-  analogWrite(RIGHT_IN1, 0);  
+  analogWrite(LEFT_IN1,  0);
+  analogWrite(LEFT_IN2,  0);
+  analogWrite(RIGHT_IN1, 0);
   analogWrite(RIGHT_IN2, 0);
-  
-  attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A), leftA_ISR, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(LEFT_ENC_B), leftB_ISR, CHANGE);
+
+  // Attach interrupts on every edge (CHANGE) of all four encoder lines
+  attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A),  leftA_ISR,  CHANGE);
+  attachInterrupt(digitalPinToInterrupt(LEFT_ENC_B),  leftB_ISR,  CHANGE);
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_A), rightA_ISR, CHANGE);
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_B), rightB_ISR, CHANGE);
-  
-  Serial.println("Send 'r' to reset counts");
+
+  Serial.println("=== Encoder Manual Test ===");
+  Serial.println("Expected: ~1920 counts per full wheel revolution");
+  Serial.println("Send 'r' in serial monitor to reset counts to 0");
+  Serial.println();
 }
 
+// ============================================================
+//  MAIN LOOP
+//  Prints live encoder counts; listens for 'r' to reset.
+// ============================================================
+
 void loop() {
-  // Reset on serial command
+  // Check for reset command from serial monitor
+  // (Make sure serial monitor line ending is "Newline" or "Both NL & CR")
   if (Serial.available()) {
     char c = Serial.read();
-    if (c == 'r') {
-      leftCount = 0;
+    if (c == 'r' || c == 'R') {
+      // Disable interrupts briefly so the reset is atomic
+      noInterrupts();
+      leftCount  = 0;
       rightCount = 0;
-      Serial.println("--- RESET ---");
+      interrupts();
+      Serial.println("--- COUNTS RESET ---");
     }
   }
-  
-  Serial.print("Left: "); Serial.print(leftCount);
-  Serial.print("  Right: "); Serial.println(rightCount);
-  delay(100);
+
+  // Print current counts
+  // Snapshot the volatile variables to avoid them changing mid-print
+  noInterrupts();
+  long L = leftCount;
+  long R = rightCount;
+  interrupts();
+
+  Serial.print("Left: ");  Serial.print(L);
+  Serial.print("   Right: "); Serial.println(R);
+
+  delay(100);   // EDIT if you want faster/slower updates (10 Hz default)
 }
