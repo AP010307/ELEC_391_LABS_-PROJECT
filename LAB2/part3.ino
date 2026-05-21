@@ -1,3 +1,5 @@
+
+// pins - might need to change
 const int LEFT_ENC_A = 2, LEFT_ENC_B = 4;
 const int RIGHT_ENC_A = 7, RIGHT_ENC_B = 8;
 
@@ -28,6 +30,15 @@ void setup() {
   pinMode(LEFT_ENC_B, INPUT);
   pinMode(RIGHT_ENC_A, INPUT);
   pinMode(RIGHT_ENC_B, INPUT);
+
+  pinMode(LEFT_IN1, OUTPUT);  
+  pinMode(LEFT_IN2, OUTPUT);
+  pinMode(RIGHT_IN1, OUTPUT); 
+  pinMode(RIGHT_IN2, OUTPUT);
+  analogWrite(LEFT_IN1, 0);   
+  analogWrite(LEFT_IN2, 0);
+  analogWrite(RIGHT_IN1, 0);  
+  analogWrite(RIGHT_IN2, 0);
   
   attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A), leftA_ISR, CHANGE);
   attachInterrupt(digitalPinToInterrupt(LEFT_ENC_B), leftB_ISR, CHANGE);
