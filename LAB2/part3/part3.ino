@@ -1,16 +1,16 @@
 
 // Encoder pins (yellow = A, white = B from Pololu wire colors)
-const int LEFT_ENC_A  = 2;   // EDIT if wired differently
-const int LEFT_ENC_B  = 4;   // EDIT if wired differently
-const int RIGHT_ENC_A = 7;   // EDIT if wired differently
-const int RIGHT_ENC_B = 8;   // EDIT if wired differently
+const int LEFT_ENC_A  = 7;   // EDIT if wired differently 7
+const int LEFT_ENC_B  = 8;   // EDIT if wired differently 8
+const int RIGHT_ENC_A = 2;   // EDIT if wired differently 2
+const int RIGHT_ENC_B = 4;   // EDIT if wired differently 4
 
 // Motor driver input pins (DRV8871 IN1, IN2)
 // Only used here to force motors OFF during the manual test
-const int LEFT_IN1  = 3;     // EDIT if wired differently
-const int LEFT_IN2  = 5;     // EDIT if wired differently
-const int RIGHT_IN1 = 6;     // EDIT if wired differently
-const int RIGHT_IN2 = 9;     // EDIT if wired differently
+const int LEFT_IN1  = 6;     // EDIT if wired differently   6
+const int LEFT_IN2  = 9;     // EDIT if wired differently  9
+const int RIGHT_IN1 = 3;     // EDIT if wired differently   3
+const int RIGHT_IN2 = 5;     // EDIT if wired differently  5
 
 // ---------- ENCODER COUNT VARIABLES ----------
 // 'volatile' is required because these are modified inside ISRs
@@ -98,7 +98,7 @@ void loop() {
       // Disable interrupts briefly so the reset is atomic
       noInterrupts();
       leftCount  = 0;
-      rightCount = 0;
+      // rightCount = 0;
       interrupts();
       Serial.println("--- COUNTS RESET ---");
     }
@@ -107,11 +107,23 @@ void loop() {
   // Print current counts
   // Snapshot the volatile variables to avoid them changing mid-print
   noInterrupts();
+
+  if (abs(leftCount) >= 1920) {
+  leftCount = 0;
+}
+
+if (abs(rightCount) >= 1920) {
+  rightCount = 0;
+}
   long L = leftCount;
   long R = rightCount;
   interrupts();
 
+
+
   Serial.print("Left: ");  Serial.print(L);
+
+  
   Serial.print("   Right: "); Serial.println(R);
 
   delay(100);   // EDIT if you want faster/slower updates (10 Hz default)

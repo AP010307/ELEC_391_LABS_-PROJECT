@@ -1,6 +1,6 @@
 #include "Arduino_BMI270_BMM150.h"
 
-float gyro_weight = 0.99;
+float gyro_weight = 0.9;
 float accel_weight = 1.00 - gyro_weight;
 
 float roll_angle = 0.0;

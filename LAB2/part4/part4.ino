@@ -1,19 +1,20 @@
 
-// ---------- PIN ASSIGNMENTS ----------
-// EDIT to match your wiring
-const int LEFT_ENC_A  = 2;
-const int LEFT_ENC_B  = 4;
-const int RIGHT_ENC_A = 7;
-const int RIGHT_ENC_B = 8;
 
-const int LEFT_IN1  = 3;
-const int LEFT_IN2  = 5;
-const int RIGHT_IN1 = 6;
-const int RIGHT_IN2 = 9;
+// Encoder pins (yellow = A, white = B from Pololu wire colors)
+const int LEFT_ENC_A  = 7;   // EDIT if wired differently 7
+const int LEFT_ENC_B  = 8;   // EDIT if wired differently 8
+const int RIGHT_ENC_A = 2;   // EDIT if wired differently 2
+const int RIGHT_ENC_B = 4;   // EDIT if wired differently 4
 
+// Motor driver input pins (DRV8871 IN1, IN2)
+// Only used here to force motors OFF during the manual test
+const int LEFT_IN1  = 6;     // EDIT if wired differently   6
+const int LEFT_IN2  = 9;     // EDIT if wired differently  9
+const int RIGHT_IN1 = 3;     // EDIT if wired differently   3
+const int RIGHT_IN2 = 5;     // EDIT if wired differently  5
 // ---------- DEADBAND (from Part 1a) ----------
 // EDIT these with your actual measured values from Part 1a
-const int LEFT_DEADBAND  = 40;   // EDIT
+const int LEFT_DEADBAND  = 41;   // EDIT
 const int RIGHT_DEADBAND = 40;   // EDIT
 
 // For simplicity, use the higher of the two deadbands as a common baseline

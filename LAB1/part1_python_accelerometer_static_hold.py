@@ -22,25 +22,18 @@ print("  14s–22s → Hold at 30°")
 
 lines = []
 start = time.time()
-
 while time.time() - start < DURATION:
     raw = ser.readline().decode('utf-8').strip()
-    # Skip all non-data lines from Arduino startup prints
-    if raw and not raw.startswith('accel') and not raw.startswith('Started') \
-            and not raw.startswith('Gyro') and not raw.startswith('Accel'):
-        parts = raw.split(',')
-        if len(parts) == 6:  # ensure valid data line
-            timestamp = round((time.time() - start) * 1000)  # ms since start
-            lines.append(f"{timestamp},{raw}")
-            print(f"{timestamp},{raw}")
-
+    if raw and not raw.startswith('time'):
+        print(raw)
+        lines.append(raw)
 ser.close()
 
 with open(OUTPUT_FILE, 'w') as f:
-    f.write('time_ms,accel_roll,accel_pitch,gyro_roll,gyro_pitch,roll_angle,pitch_angle\n')
+    f.write('time_ms,accel_angle\n')
     for l in lines:
         f.write(l + '\n')
-print(f"\nSaved to {OUTPUT_FILE}")
+print(f"Saved to {OUTPUT_FILE}")
 
 # ── LOAD ─────────────────────────────────────────────────
 df = pd.read_csv(OUTPUT_FILE)
@@ -48,7 +41,7 @@ df['time_s'] = df['time_ms'] / 1000.0
 
 # ── PLOT ─────────────────────────────────────────────────
 plt.figure(figsize=(10, 5))
-plt.plot(df['time_s'], df['accel_roll'], color='blue', linewidth=0.8, label='Accelerometer Roll')
+plt.plot(df['time_s'], df['accel_angle'], color='blue', linewidth=0.8, label='Accelerometer')
 plt.axhline(0,  color='gray',   linestyle='--', linewidth=0.7, label='0° target')
 plt.axhline(10, color='orange', linestyle='--', linewidth=0.7, label='10° target')
 plt.axhline(30, color='red',    linestyle='--', linewidth=0.7, label='30° target')
@@ -74,9 +67,9 @@ print("\n── Statistical Results ──────────────�
 print(f"{'Angle':<8} {'Mean (°)':<12} {'Std Dev (°)':<14} {'Error (°)':<10}")
 print("-" * 48)
 for label, (t_start, t_end) in windows.items():
-    window = df[(df['time_s'] >= t_start) & (df['time_s'] <= t_end)]['accel_roll']
+    window = df[(df['time_s'] >= t_start) & (df['time_s'] <= t_end)]['accel_angle']
     if window.empty:
-        print(f"{label:<8} No data in window {t_start}s–{t_end}s")
+        print(f"{label:<8} No data in window")
         continue
     mean  = window.mean()
     std   = window.std()

@@ -1,21 +1,22 @@
-#include <Arduino_LSM9DS1.h>
+
+#include "Arduino_BMI270_BMM150.h"
 
 // ---------- PIN ASSIGNMENTS ----------
 // EDIT to match your wiring
-const int LEFT_ENC_A  = 2;
-const int LEFT_ENC_B  = 4;
-const int RIGHT_ENC_A = 7;
-const int RIGHT_ENC_B = 8;
+const int LEFT_ENC_A  = 7;
+const int LEFT_ENC_B  = 8;
+const int RIGHT_ENC_A = 2;
+const int RIGHT_ENC_B = 4;
 
-const int LEFT_IN1  = 3;
-const int LEFT_IN2  = 5;
-const int RIGHT_IN1 = 6;
-const int RIGHT_IN2 = 9;
+const int LEFT_IN1  = 6;
+const int LEFT_IN2  = 9;
+const int RIGHT_IN1 = 3;
+const int RIGHT_IN2 = 5;
 
 // ---------- DEADBAND (from Part 1a) ----------
-const int LEFT_DEADBAND  = 40;   // EDIT with your measured value
+const int LEFT_DEADBAND  = 41;   // EDIT with your measured value
 const int RIGHT_DEADBAND = 40;   // EDIT with your measured value
-const int DEADBAND = max(LEFT_DEADBAND, RIGHT_DEADBAND);
+const int DEADBAND = min(LEFT_DEADBAND, RIGHT_DEADBAND);
 
 // ---------- CONTROL PARAMETERS ----------
 // Kp = PWM units per degree of tilt
@@ -23,7 +24,7 @@ const int DEADBAND = max(LEFT_DEADBAND, RIGHT_DEADBAND);
 //   - Too small: motors barely respond to large tilts
 //   - Too large: motors saturate at small tilts
 //   - Start around 5 and adjust from there
-const float KP = 5.0;
+const float KP = 10;
 
 // Threshold below which we don't drive the motors (avoid jitter at 0 tilt)
 const float TILT_DEADZONE_DEG = 1.0;   // EDIT if needed
@@ -42,6 +43,13 @@ long lastRightCount = 0;
 unsigned long lastRPMTime = 0;
 float leftRPM  = 0.0;
 float rightRPM = 0.0;
+
+
+float gyro_weight = 0.95;
+float accel_weight = 1.00 - gyro_weight;
+float roll_angle = 0.0;
+unsigned long previous_time = 0;
+
 
 // ============================================================
 //  ISRs
@@ -91,12 +99,26 @@ void setMotor(int in1Pin, int in2Pin, int speed) {
 // ============================================================
 float readTiltAngle() {
   float ax, ay, az;
+  float gx, gy, gz;
+  // float roll_angle = 0.0;
+
   if (IMU.accelerationAvailable()) {
+    IMU.readGyroscope(gx, gy, gz);
     IMU.readAcceleration(ax, ay, az);
-    // EDIT: try (ax, az), (ay, az), or swap signs if direction is wrong
-    return atan2(ax, az) * 180.0 / PI;
+
+    unsigned long current_time = millis();
+    float dt = (current_time - previous_time) / 1000.0; // seconds
+    previous_time = current_time;
+
+    float accel_roll = atan2(ay, az) * 180.0 / PI;
+    float gyro_roll = roll_angle + gx * dt;
+
+    roll_angle  = gyro_weight * gyro_roll + accel_weight * accel_roll;
+
+  
   }
-  return 0.0;   // no new data
+
+    return roll_angle;
 }
 
 // ============================================================
@@ -187,7 +209,7 @@ void loop() {
   }
 
   // 4. Drive both motors in the same direction
-  setMotor(LEFT_IN1,  LEFT_IN2,  pwm);
+  setMotor(LEFT_IN1,  LEFT_IN2,  -pwm);
   setMotor(RIGHT_IN1, RIGHT_IN2, pwm);
 
   // 5. Update RPM measurements
@@ -200,5 +222,5 @@ void loop() {
   Serial.print("   L RPM: "); Serial.print(leftRPM, 1);
   Serial.print("   R RPM: "); Serial.println(rightRPM, 1);
 
-  delay(50);   // 20 Hz control loop
+  // delay(20);   // 20 Hz control loop
 }
