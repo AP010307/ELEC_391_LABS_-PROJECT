@@ -1,24 +1,23 @@
 
 
 // Encoder pins (yellow = A, white = B from Pololu wire colors)
-const int LEFT_ENC_A  = 7;   // EDIT if wired differently 7
-const int LEFT_ENC_B  = 8;   // EDIT if wired differently 8
-const int RIGHT_ENC_A = 2;   // EDIT if wired differently 2
-const int RIGHT_ENC_B = 4;   // EDIT if wired differently 4
+const int LEFT_ENC_A  = 7;   
+const int LEFT_ENC_B  = 8;   
+const int RIGHT_ENC_A = 2;   
+const int RIGHT_ENC_B = 4;   
 
 // Motor driver input pins (DRV8871 IN1, IN2)
 // Only used here to force motors OFF during the manual test
-const int LEFT_IN1  = 6;     // EDIT if wired differently   6
-const int LEFT_IN2  = 9;     // EDIT if wired differently  9
-const int RIGHT_IN1 = 3;     // EDIT if wired differently   3
-const int RIGHT_IN2 = 5;     // EDIT if wired differently  5
+const int LEFT_IN1  = 6;     
+const int LEFT_IN2  = 9;     
+const int RIGHT_IN1 = 3;     
+const int RIGHT_IN2 = 5;  
+
 // ---------- DEADBAND (from Part 1a) ----------
-// EDIT these with your actual measured values from Part 1a
-const int LEFT_DEADBAND  = 41;   // EDIT
-const int RIGHT_DEADBAND = 40;   // EDIT
+const int LEFT_DEADBAND  = 41;  
+const int RIGHT_DEADBAND = 40;   
 
 // For simplicity, use the higher of the two deadbands as a common baseline
-// (matches what you did for Part 1b/2)
 const int DEADBAND = max(LEFT_DEADBAND, RIGHT_DEADBAND);
 
 // ---------- PWM LEVELS ----------
@@ -35,9 +34,8 @@ const long COUNTS_PER_REV = 1920;   // full x4 quadrature, at the wheel
 volatile long leftCount  = 0;
 volatile long rightCount = 0;
 
-// ============================================================
-//  ISRs (same as Part 3)
-// ============================================================
+
+// ----------- ISRs (same as Part 3) ------------
 void leftA_ISR() {
   if (digitalRead(LEFT_ENC_A) == digitalRead(LEFT_ENC_B)) leftCount--;
   else leftCount++;
@@ -55,10 +53,8 @@ void rightB_ISR() {
   else rightCount--;
 }
 
-// ============================================================
-//  MOTOR HELPER (brake-mode PWM)
+// -------- MOTOR HELPER (brake-mode PWM) ---------
 //  speed: -255 to +255 (negative = reverse)
-// ============================================================
 void setMotor(int in1Pin, int in2Pin, int speed) {
   if (speed >= 0) {
     analogWrite(in1Pin, speed);
@@ -69,9 +65,7 @@ void setMotor(int in1Pin, int in2Pin, int speed) {
   }
 }
 
-// ============================================================
 //  SETUP
-// ============================================================
 void setup() {
   Serial.begin(115200);
   while (!Serial) { ; }
@@ -100,10 +94,9 @@ void setup() {
   Serial.println();
 }
 
-// ============================================================
-//  RPM MEASUREMENT
+
+// -------------- RPM MEASUREMENT -----------------
 //  Samples count difference over a 1-second window
-// ============================================================
 void measureAndPrintRPM(int pwm) {
   // Snapshot starting counts
   noInterrupts();
@@ -132,10 +125,8 @@ void measureAndPrintRPM(int pwm) {
   Serial.print("   Right RPM: "); Serial.println(rightRPM, 1);
 }
 
-// ============================================================
-//  MAIN LOOP
-//  Cycles: 25% PWM -> measure -> 75% PWM -> measure -> stop -> repeat
-// ============================================================
+
+// Cycles: 25% PWM -> measure -> 75% PWM -> measure -> stop -> repeat
 void loop() {
   // --- 25% PWM ---
   Serial.println("\n--- Running at 25% of usable range ---");
