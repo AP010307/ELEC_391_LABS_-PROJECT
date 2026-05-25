@@ -1,17 +1,17 @@
 int pwm50 = 148 ;  // 50% of usable range - confirmed value from part1b
 
 // Encoder pins (yellow = A, white = B from Pololu wire colors)
-const int LEFT_ENC_A  = 7;   // EDIT if wired differently 7
-const int LEFT_ENC_B  = 8;   // EDIT if wired differently 8
-const int RIGHT_ENC_A = 2;   // EDIT if wired differently 2
-const int RIGHT_ENC_B = 4;   // EDIT if wired differently 4
+const int LEFT_ENC_A  = 7;   
+const int LEFT_ENC_B  = 8;   
+const int RIGHT_ENC_A = 2;   
+const int RIGHT_ENC_B = 4;  
 
 // Motor driver input pins (DRV8871 IN1, IN2)
 // Only used here to force motors OFF during the manual test
-const int LEFT_IN1  = 6;     // EDIT if wired differently   6
-const int LEFT_IN2  = 9;     // EDIT if wired differently  9
-const int RIGHT_IN1 = 3;     // EDIT if wired differently   3
-const int RIGHT_IN2 = 5;     // EDIT if wired differently  5
+const int LEFT_IN1  = 6;     
+const int LEFT_IN2  = 9;    
+const int RIGHT_IN1 = 3;    
+const int RIGHT_IN2 = 5;     
 
 // ---------- ENCODER COUNT VARIABLES ----------
 // 'volatile' is required because these are modified inside ISRs
@@ -21,10 +21,9 @@ volatile long rightCount = 0;
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial) { ; }   // wait for serial monitor (optional)
+  while (!Serial) { ; }   // wait for serial monitor 
 
   // Encoder pins as inputs
-  // If counts look flaky or stuck, try INPUT_PULLUP instead of INPUT
   pinMode(LEFT_ENC_A,  INPUT);
   pinMode(LEFT_ENC_B,  INPUT);
   pinMode(RIGHT_ENC_A, INPUT);
