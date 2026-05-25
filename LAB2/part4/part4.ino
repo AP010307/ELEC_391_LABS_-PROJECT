@@ -1,5 +1,3 @@
-
-
 // Encoder pins (yellow = A, white = B from Pololu wire colors)
 const int LEFT_ENC_A  = 7;   
 const int LEFT_ENC_B  = 8;   
