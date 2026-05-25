@@ -2,7 +2,6 @@
 #include "Arduino_BMI270_BMM150.h"
 
 // ---------- PIN ASSIGNMENTS ----------
-// EDIT to match your wiring
 const int LEFT_ENC_A  = 7;
 const int LEFT_ENC_B  = 8;
 const int RIGHT_ENC_A = 2;
@@ -14,25 +13,22 @@ const int RIGHT_IN1 = 3;
 const int RIGHT_IN2 = 5;
 
 // ---------- DEADBAND (from Part 1a) ----------
-const int LEFT_DEADBAND  = 41;   // EDIT with your measured value
-const int RIGHT_DEADBAND = 40;   // EDIT with your measured value
+const int LEFT_DEADBAND  = 41;  
+const int RIGHT_DEADBAND = 40;  
 const int DEADBAND = min(LEFT_DEADBAND, RIGHT_DEADBAND);
 
 // ---------- CONTROL PARAMETERS ----------
 // Kp = PWM units per degree of tilt
-// EDIT this to tune the response:
+// Edit to tune the response:
 //   - Too small: motors barely respond to large tilts
 //   - Too large: motors saturate at small tilts
-//   - Start around 5 and adjust from there
 const float KP = 10;
 
 // Threshold below which we don't drive the motors (avoid jitter at 0 tilt)
 const float TILT_DEADZONE_DEG = 1.0;   // EDIT if needed
-
-// Max PWM (don't change unless you have a reason)
 const int MAX_PWM = 255;
 
-// ---------- ENCODER CONSTANTS ----------
+// ENCODER CONSTANTS
 const long COUNTS_PER_REV = 1920;
 
 // ---------- ENCODER STATE ----------
@@ -50,10 +46,7 @@ float accel_weight = 1.00 - gyro_weight;
 float roll_angle = 0.0;
 unsigned long previous_time = 0;
 
-
-// ============================================================
 //  ISRs
-// ============================================================
 void leftA_ISR() {
   if (digitalRead(LEFT_ENC_A) == digitalRead(LEFT_ENC_B)) leftCount--;
   else leftCount++;
@@ -71,9 +64,8 @@ void rightB_ISR() {
   else rightCount--;
 }
 
-// ============================================================
+
 //  MOTOR HELPER (brake-mode PWM)
-// ============================================================
 void setMotor(int in1Pin, int in2Pin, int speed) {
   // Clamp to valid range
   if (speed >  MAX_PWM) speed =  MAX_PWM;
@@ -88,15 +80,9 @@ void setMotor(int in1Pin, int in2Pin, int speed) {
   }
 }
 
-// ============================================================
-//  TILT ANGLE FROM ACCELEROMETER
+// -------------- TILT ANGLE FROM ACCELEROMETER ------------------
 //  Returns tilt in degrees from vertical.
 //  Sign convention: positive = tilt in one direction, negative = other.
-//
-//  NOTE: Which axes to use depends on how the Arduino is physically
-//  mounted on the robot. Try atan2(ax, az) first. If it doesn't
-//  respond to your tilt direction, try atan2(ay, az) instead.
-// ============================================================
 float readTiltAngle() {
   float ax, ay, az;
   float gx, gy, gz;
@@ -113,17 +99,13 @@ float readTiltAngle() {
     float accel_roll = atan2(ay, az) * 180.0 / PI;
     float gyro_roll = roll_angle + gx * dt;
 
-    roll_angle  = gyro_weight * gyro_roll + accel_weight * accel_roll;
-
-  
+    roll_angle  = gyro_weight * gyro_roll + accel_weight * accel_roll;  
   }
-
     return roll_angle;
 }
 
-// ============================================================
-//  RPM CALCULATION (non-blocking - updated every ~200 ms)
-// ============================================================
+
+// ---------- RPM CALCULATION (non-blocking - updated every ~200 ms) ------
 void updateRPM() {
   unsigned long now = millis();
   unsigned long elapsed = now - lastRPMTime;
@@ -144,9 +126,6 @@ void updateRPM() {
   }
 }
 
-// ============================================================
-//  SETUP
-// ============================================================
 void setup() {
   Serial.begin(115200);
   while (!Serial) { ; }
@@ -189,9 +168,6 @@ void setup() {
   Serial.println();
 }
 
-// ============================================================
-//  MAIN LOOP
-// ============================================================
 void loop() {
   // 1. Read tilt
   float tilt = readTiltAngle();
