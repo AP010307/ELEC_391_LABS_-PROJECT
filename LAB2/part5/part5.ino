@@ -20,10 +20,6 @@ const int DEADBAND = min(LEFT_DEADBAND, RIGHT_DEADBAND);
 
 // ---------- CONTROL PARAMETERS ----------
 // Kp = PWM units per degree of tilt
-// EDIT this to tune the response:
-//   - Too small: motors barely respond to large tilts
-//   - Too large: motors saturate at small tilts
-//   - Start around 5 and adjust from there
 const float KP = 10;
 
 // Threshold below which we don't drive the motors (avoid jitter at 0 tilt)
@@ -89,18 +85,12 @@ void setMotor(int in1Pin, int in2Pin, int speed) {
 }
 
 // ============================================================
-//  TILT ANGLE FROM ACCELEROMETER
-//  Returns tilt in degrees from vertical.
-//  Sign convention: positive = tilt in one direction, negative = other.
-//
-//  NOTE: Which axes to use depends on how the Arduino is physically
-//  mounted on the robot. Try atan2(ax, az) first. If it doesn't
-//  respond to your tilt direction, try atan2(ay, az) instead.
+//  TILT ANGLE FROM ACCELEROMETER and Gyro(Lab 1)
 // ============================================================
 float readTiltAngle() {
   float ax, ay, az;
   float gx, gy, gz;
-  // float roll_angle = 0.0;
+  
 
   if (IMU.accelerationAvailable()) {
     IMU.readGyroscope(gx, gy, gz);
@@ -205,7 +195,7 @@ void loop() {
     // Magnitude: deadband + proportional part
     int mag = DEADBAND + abs((int)command);
     if (mag > MAX_PWM) mag = MAX_PWM;
-    pwm = (command >= 0) ? mag : -mag;
+    pwm = (command >= 0) ? -mag : mag;
   }
 
   // 4. Drive both motors in the same direction
@@ -222,5 +212,4 @@ void loop() {
   Serial.print("   L RPM: "); Serial.print(leftRPM, 1);
   Serial.print("   R RPM: "); Serial.println(rightRPM, 1);
 
-  // delay(20);   // 20 Hz control loop
 }
