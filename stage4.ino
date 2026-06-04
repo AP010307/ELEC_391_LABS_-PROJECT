@@ -71,19 +71,25 @@ const float U_MAX=255.0, U_DEADZONE=2.0;
 const int   FWD_SIGN_L=-1, FWD_SIGN_R=+1;
 
 // ===== HARDCODED control config =====
-const float BASE_OFFSET = -0.6;     // validated balance setpoint (deg)
+const float BASE_OFFSET = 0;     // validated balance setpoint (deg)
 const int   OUTPUT_SIGN = -1;       // verified
 const float FALL_LIMIT  = 35.0;
-const float I_MAX       = 120.0;
+const float I_MAX       = 30.0;
 const float DERIV_TAU   = 0.02;
 
 // ===== drive command biases (set by handleCommand) =====
-const float FWD_LEAN = 2.0;         // deg of setpoint lean for FWD/BACK (tune)
-const float TURN     = 40.0;        // differential bias for steering (tune)
+const float FWD_LEAN = 0.25;         // deg of setpoint lean for FWD/BACK (tune)
+const float TURN     = 8.0;        // differential bias for steering (tune)
 const int   LEAN_SIGN = +1;         // flip if FORWARD drives backward
 const int   TURN_SIGN = +1;         // flip if LEFT/RIGHT are swapped
+float targetdriveLean = 0.0;
+float targetturnBias  = 0.0;
+
 float driveLean = 0.0;
-float turnBias  = 0.0;
+float turnBias = 0.0;
+
+const float LEAN_RAMP = 0.005;
+const float TURN_RAMP = 0.25;
 
 PIDController pid;
 bool armed=true;                    // auto-armed after calibration
@@ -114,11 +120,11 @@ void resetPID(){ pid.integrator=0; pid.differentiator=0;
 // ---------- command handling (BLE or serial) ----------
 void handleCommand(String c){
   c.trim(); c.toUpperCase();
-  if(c=="FORWARD"||c=="F"||c=="UP")        driveLean =  LEAN_SIGN*FWD_LEAN;
-  else if(c=="BACKWARD"||c=="B"||c=="DOWN")driveLean = -LEAN_SIGN*FWD_LEAN;
-  else if(c=="LEFT"||c=="L")               turnBias  = -TURN_SIGN*TURN;
-  else if(c=="RIGHT"||c=="R")              turnBias  =  TURN_SIGN*TURN;
-  else if(c=="STOP"||c=="S"||c=="A")     { driveLean=0; turnBias=0; }
+  if(c=="FORWARD"||c=="F"||c=="UP")        targetdriveLean =  LEAN_SIGN*FWD_LEAN;
+  else if(c=="BACKWARD"||c=="B"||c=="DOWN")targetdriveLean = -LEAN_SIGN*FWD_LEAN;
+  else if(c=="LEFT"||c=="L")               targetturnBias  = -TURN_SIGN*TURN;
+  else if(c=="RIGHT"||c=="R")              targetturnBias  =  TURN_SIGN*TURN;
+  else if(c=="STOP"||c=="S"||c=="A")     { targetdriveLean=0; targetturnBias=0; }
   else if(c=="ARM")                        armed=true;
   else if(c=="KILL"||c=="Z")             { armed=false; coast(); }
   else { driveLean=0; turnBias=0; }       // unknown -> stop safely
@@ -182,6 +188,11 @@ void controlStep(){
   angle=k*(angle+rate*dt)+(1.0-k)*accAng;
 
   pid.T=dt;
+  if(driveLean < targetdriveLean) driveLean+=LEAN_RAMP;
+  if(driveLean > targetdriveLean) driveLean-=LEAN_RAMP;
+
+  if(turnBias  < targetturnBias) turnBias+=TURN_RAMP;
+  if(turnBias  > targetturnBias) turnBias-=TURN_RAMP;
   float setpoint = BASE_OFFSET + driveLean;        // forward/back = lean setpoint
   float pidOut = PIDController_Update(&pid, setpoint, angle);
   float uOut = OUTPUT_SIGN*pidOut;
