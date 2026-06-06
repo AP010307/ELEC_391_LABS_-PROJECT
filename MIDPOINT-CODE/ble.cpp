@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ArduinoBLE.h>
+#include <string.h>
 #include "ble.h"
 
 #define BLE_BUFFER_SIZE 20
