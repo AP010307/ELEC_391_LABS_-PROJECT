@@ -14,7 +14,7 @@ static float accelAngleDeg(float x, float y, float z) {
 
 static float gyroPitchRate(float rx, float ry, float rz) {
     (void)ry; (void)rz;
-    return -rx; /* negated: corrects sign disagreement with accelerometer */
+    return -rx; /* should be negative sign */
 }
 
 bool angle_init() {
