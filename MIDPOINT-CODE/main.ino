@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <string.h>
+#include <ctype.h>
 #include "pid.h"
 #include "angle.h"
 #include "motor.h"
@@ -58,9 +60,6 @@ static void handleCommand(const char *cmd) {
         i++;
     }
     upper[i] = '\0';
-
-    /* Trim leading/trailing whitespace is not performed here;
-       caller should ensure clean input if needed. */
 
     if (strcmp(upper, "FORWARD") == 0 || strcmp(upper, "F") == 0 ||
         strcmp(upper, "UP") == 0) {
