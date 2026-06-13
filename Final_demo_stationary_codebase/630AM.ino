@@ -175,6 +175,8 @@ void setup(){
   angle=accelAngleDeg(ax,ay,az);
 
 //13 , 100, 1.65
+
+//6.9 , 100, 1.1 (WORKS)
   PIDController_Init(&pid);
   pid.Kp=6.9; pid.Ki=100.00; pid.Kd=1.1; pid.tau=DERIV_TAU;
   pid.limMin=-U_MAX; pid.limMax=U_MAX;
