@@ -1,6 +1,7 @@
 
 
 // Encoder pins (yellow = A, white = B from Pololu wire colors)
+<<<<<<< HEAD
 const int LEFT_ENC_A  = 7;   // D7
 const int LEFT_ENC_B  = 8;   // D8
 const int RIGHT_ENC_A = 2;   // D2
@@ -12,16 +13,31 @@ const int LEFT_IN1  = 6;     //  D6
 const int LEFT_IN2  = 9;     //  D9
 const int RIGHT_IN1 = 3;     //  D3
 const int RIGHT_IN2 = 5;     //  D5
+=======
+const int LEFT_ENC_A  = 7;  
+const int LEFT_ENC_B  = 8;  
+const int RIGHT_ENC_A = 2;  
+const int RIGHT_ENC_B = 4;  
+
+// Motor driver input pins (DRV8871 IN1, IN2)
+// Only used here to force motors OFF during the manual test
+const int LEFT_IN1  = 6;   
+const int LEFT_IN2  = 9;     
+const int RIGHT_IN1 = 3; 
+const int RIGHT_IN2 = 5;     
+>>>>>>> 9b42450739068983d9e726d4e2b804938decfc4d
 
 // ---------- ENCODER COUNT VARIABLES ----------
 volatile long leftCount  = 0;
 volatile long rightCount = 0;
 
-// ============================================================
-//  INTERRUPT SERVICE ROUTINES (ISRs)
+// ------ INTERRUPT SERVICE ROUTINES (ISRs) -------------
 //  Full x4 quadrature: interrupts fire on both edges of A and B.
 //  Direction logic compares A and B levels at the moment of edge.
+<<<<<<< HEAD
 // ============================================================
+=======
+>>>>>>> 9b42450739068983d9e726d4e2b804938decfc4d
 
 void leftA_ISR() {
   if (digitalRead(LEFT_ENC_A) == digitalRead(LEFT_ENC_B)) leftCount--;
@@ -43,16 +59,13 @@ void rightB_ISR() {
   else rightCount--;
 }
 
-// ============================================================
-//  SETUP
-// ============================================================
 
+// SETUP
 void setup() {
   Serial.begin(115200);
-  while (!Serial) { ; }   // wait for serial monitor (optional)
+  while (!Serial) { ; }   // wait for serial monitor 
 
   // Encoder pins as inputs
-  // If counts look flaky or stuck, try INPUT_PULLUP instead of INPUT
   pinMode(LEFT_ENC_A,  INPUT);
   pinMode(LEFT_ENC_B,  INPUT);
   pinMode(RIGHT_ENC_A, INPUT);
@@ -63,6 +76,7 @@ void setup() {
   pinMode(LEFT_IN2,  OUTPUT);
   pinMode(RIGHT_IN1, OUTPUT);
   pinMode(RIGHT_IN2, OUTPUT);
+  
   analogWrite(LEFT_IN1,  0);
   analogWrite(LEFT_IN2,  0);
   analogWrite(RIGHT_IN1, 0);
@@ -80,13 +94,15 @@ void setup() {
   Serial.println();
 }
 
-// ============================================================
-//  MAIN LOOP
+// --------------- MAIN LOOP --------------------
 //  Prints live encoder counts; listens for 'r' to reset.
-// ============================================================
 
 void loop() {
+<<<<<<< HEAD
 
+=======
+  // Check for reset command from serial monitor
+>>>>>>> 9b42450739068983d9e726d4e2b804938decfc4d
   if (Serial.available()) {
     char c = Serial.read();
     if (c == 'r' || c == 'R') {
@@ -100,11 +116,9 @@ void loop() {
   }
 
   noInterrupts();
-
   if (abs(leftCount) >= 1920) {
   leftCount = 0;
 }
-
 if (abs(rightCount) >= 1920) {
   rightCount = 0;
 }
@@ -114,10 +128,12 @@ if (abs(rightCount) >= 1920) {
 
 
 
-  Serial.print("Left: ");  Serial.print(L);
-
-  
+  Serial.print("Left: ");  Serial.print(L); 
   Serial.print("   Right: "); Serial.println(R);
 
+<<<<<<< HEAD
   delay(100); 
+=======
+  delay(100);   // Edit if wanting faster/slower updates (10 Hz default)
+>>>>>>> 9b42450739068983d9e726d4e2b804938decfc4d
 }

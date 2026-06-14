@@ -1,6 +1,4 @@
-
 #include "Arduino_BMI270_BMM150.h"
-
 // ---------- PIN ASSIGNMENTS ----------
 const int LEFT_ENC_A  = 7;
 const int LEFT_ENC_B  = 8;
@@ -11,25 +9,22 @@ const int LEFT_IN1  = 6;
 const int LEFT_IN2  = 9;
 const int RIGHT_IN1 = 3;
 const int RIGHT_IN2 = 5;
-
 // ---------- DEADBAND (from Part 1a) ----------
 const int LEFT_DEADBAND  = 41;  
 const int RIGHT_DEADBAND = 40;  
-const int DEADBAND = min(LEFT_DEADBAND, RIGHT_DEADBAND);
+const int DEADBAND = max(LEFT_DEADBAND, RIGHT_DEADBAND);
 
-// ---------- CONTROL PARAMETERS ----------
-// Kp = PWM units per degree of tilt
-<<<<<<< HEAD
-=======
-// Edit to tune the response:
-//   - Too small: motors barely respond to large tilts
-//   - Too large: motors saturate at small tilts
->>>>>>> 9b42450739068983d9e726d4e2b804938decfc4d
-const float KP = 10;
-
+float Kp, Kd, Ki;
+float target_angle = 0.0;
 // Threshold below which we don't drive the motors (avoid jitter at 0 tilt)
 const float TILT_DEADZONE_DEG = 1.0;   // EDIT if needed
 const int MAX_PWM = 255;
+
+float previous_error = 0.0;
+float proportional = 0.0;
+float integral = 0.0;
+float derivative = 0.0;
+float output = 0.0;
 
 // ENCODER CONSTANTS
 const long COUNTS_PER_REV = 1920;
@@ -39,7 +34,6 @@ volatile long leftCount  = 0;
 volatile long rightCount = 0;
 long lastLeftCount  = 0;
 long lastRightCount = 0;
-unsigned long lastRPMTime = 0;
 float leftRPM  = 0.0;
 float rightRPM = 0.0;
 
@@ -83,27 +77,16 @@ void setMotor(int in1Pin, int in2Pin, int speed) {
   }
 }
 
-<<<<<<< HEAD
-// ============================================================
-//  TILT ANGLE FROM ACCELEROMETER and Gyro(Lab 1)
-// ============================================================
-=======
 // -------------- TILT ANGLE FROM ACCELEROMETER ------------------
 //  Returns tilt in degrees from vertical.
 //  Sign convention: positive = tilt in one direction, negative = other.
->>>>>>> 9b42450739068983d9e726d4e2b804938decfc4d
-float readTiltAngle() {
+float readTiltAngle(float dt) {
   float ax, ay, az;
   float gx, gy, gz;
-  
 
-  if (IMU.accelerationAvailable()) {
+  if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
     IMU.readGyroscope(gx, gy, gz);
     IMU.readAcceleration(ax, ay, az);
-
-    unsigned long current_time = millis();
-    float dt = (current_time - previous_time) / 1000.0; // seconds
-    previous_time = current_time;
 
     float accel_roll = atan2(ay, az) * 180.0 / PI;
     float gyro_roll = roll_angle + gx * dt;
@@ -111,28 +94,6 @@ float readTiltAngle() {
     roll_angle  = gyro_weight * gyro_roll + accel_weight * accel_roll;  
   }
     return roll_angle;
-}
-
-
-// ---------- RPM CALCULATION (non-blocking - updated every ~200 ms) ------
-void updateRPM() {
-  unsigned long now = millis();
-  unsigned long elapsed = now - lastRPMTime;
-
-  if (elapsed >= 200) {   // update every 200 ms
-    noInterrupts();
-    long curLeft  = leftCount;
-    long curRight = rightCount;
-    interrupts();
-
-    float dt = elapsed / 1000.0;
-    leftRPM  = ((curLeft  - lastLeftCount)  / dt) * 60.0 / COUNTS_PER_REV;
-    rightRPM = ((curRight - lastRightCount) / dt) * 60.0 / COUNTS_PER_REV;
-
-    lastLeftCount  = curLeft;
-    lastRightCount = curRight;
-    lastRPMTime    = now;
-  }
 }
 
 void setup() {
@@ -168,43 +129,69 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_A), rightA_ISR, CHANGE);
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_B), rightB_ISR, CHANGE);
 
-  lastRPMTime = millis();
+  Kp = 10.0;
+  Kd = 0.0;
+  Ki = 0.0;
+
+  previous_time = millis();
 
   Serial.println("=== Part 5: Proportional Tilt Control ===");
   Serial.print("Deadband: "); Serial.println(DEADBAND);
-  Serial.print("Kp: ");       Serial.println(KP);
+  Serial.print("Kp: ");       Serial.println(Kp);
   Serial.println("Tilt the robot to drive motors. Tilt = 0 -> stopped.");
   Serial.println();
 }
 
 void loop() {
-  // 1. Read tilt
-  float tilt = readTiltAngle();
+  unsigned long current_time = millis();
+  float dt = (current_time - previous_time) / 1000.0; // seconds
 
-  // 2. Compute proportional command
-  float command = KP * tilt;   // raw signed PWM-equivalent
+  if (dt <= 0.0 || dt > 0.1) {
+    dt = 0.02;
+  }
+
+  previous_time = current_time;
+
+  // 1. Read tilt
+  float tilt = readTiltAngle(dt);
+  float error = tilt - target_angle;
+  output = pid(error, dt);
 
   // 3. Apply deadband compensation and dead zone
   int pwm = 0;
-  if (abs(tilt) > TILT_DEADZONE_DEG) {
+  if (fabs(error) > TILT_DEADZONE_DEG) {
     // Magnitude: deadband + proportional part
-    int mag = DEADBAND + abs((int)command);
+    int mag = DEADBAND + abs((int)output);
     if (mag > MAX_PWM) mag = MAX_PWM;
-    pwm = (command >= 0) ? -mag : mag;
+    pwm = (output >= 0) ? mag : -mag;
   }
 
   // 4. Drive both motors in the same direction
-  setMotor(LEFT_IN1,  LEFT_IN2,  -pwm);
-  setMotor(RIGHT_IN1, RIGHT_IN2, pwm);
+  setMotor(LEFT_IN1,  LEFT_IN2,  pwm);
+  setMotor(RIGHT_IN1, RIGHT_IN2, -pwm);
 
-  // 5. Update RPM measurements
-  updateRPM();
+  Serial.print("  Tilt: ");
+  Serial.print(tilt);
 
-  // 6. Print status (every loop, ~50 ms cycle)
-  Serial.print("Tilt: ");    Serial.print(tilt, 1);
-  Serial.print(" deg");
-  Serial.print("   PWM: ");  Serial.print(pwm);
-  Serial.print("   L RPM: "); Serial.print(leftRPM, 1);
-  Serial.print("   R RPM: "); Serial.println(rightRPM, 1);
+  Serial.print("  Error: ");
+  Serial.print(error);
 
+  Serial.print("  Output: ");
+  Serial.print(output);
+
+  Serial.print("  PWM: ");
+  Serial.println(pwm);
+
+  delay(20);
+
+}
+
+float pid(float error, float dt)
+{
+  proportional = error;
+  integral = integral + error * dt;
+  derivative = (error - previous_error) / dt;
+  previous_error = error;
+  output = (Kp * proportional) + (Ki * integral) + (Kd * derivative);
+  return output;
 }
