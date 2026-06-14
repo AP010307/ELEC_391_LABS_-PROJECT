@@ -16,6 +16,7 @@ void PIDController_Init(PIDController *pid){
   pid->integrator=0; pid->prevError=0; pid->differentiator=0;
   pid->prevMeasurement=0; pid->out=0;
 }
+
 float PIDController_Update(PIDController *pid, float setpoint, float measurement){
   float error = setpoint - measurement;
   float proportional = pid->Kp * error;
@@ -41,7 +42,7 @@ long prevEncR = 0;
 void isrLeft()  { if(digitalRead(LEFT_ENC_B))  encL++; else encL--; }
 void isrRight() { if(digitalRead(RIGHT_ENC_B)) encR++; else encR--; }
 
-// per-loop-delta yaw trim (original working method, used only while parked)
+//YAW ADJUSTMENTS
 const float YAW_KP_FWD   = 0.06f;
 const float YAW_KP_BACK  = 0.02f;
 const float YAW_KP_STILL = 0.03f;
@@ -64,12 +65,19 @@ const float FALL_LIMIT  = 35.0;
 const float I_MAX       = 30.0;
 const float DERIV_TAU   = 0.02;
 
-// drive lean magnitudes while a move executes
+
+//TUNE FOR FORWARD AND BACKWARD COMMAND
 const float FWD_LEAN_FWD  =  1.0;
 const float FWD_LEAN_BACK = -1.0;
-const float TURNBIAS      =  2.5;
+
+//TUNE FOR TURN SPEED
+//NEED LESS OR EQUAL TO 2 SEC
+const float TURNBIAS      =  2.5; 
+
+
 const int   LEAN_SIGN     = +1;
 const int   TURN_SIGN     = +1;
+
 float driveLean = 0.0;
 float turnBias  = 0.0;
 float targetdriveLean = 0.0;
@@ -80,11 +88,15 @@ const float TURN_RAMP = 0.25;
 const float LEFT_MOTOR_SCALE  = 0.92f;
 const float RIGHT_MOTOR_SCALE = 1.00f;
 
-// ===== calibrated move targets =====
-const float COUNTS_PER_CM = 19.2f;
+//MOVE TARGETS - DISTANCE
+const float COUNTS_PER_CM = 19.2f; //FINE TUNE
 const float MOVE_DIST_CM  = 50.0f;
-const long  MOVE_TARGET_COUNTS = (long)(MOVE_DIST_CM * COUNTS_PER_CM);  // 960
-const float TURN_TARGET_DEG    = 45.0f;
+const long  MOVE_TARGET_COUNTS = (long)(MOVE_DIST_CM * COUNTS_PER_CM);
+
+//MOVE TARGETS - TURN ANGLE
+const float TURN_TARGET_DEG    = 45.0f; //FINE TUNE 
+
+
 
 // ===== move state machine =====
 enum MoveState { IDLE, MOVING_FB, TURNING };
@@ -100,7 +112,14 @@ float accelAngleDeg(float x,float y,float z){ return atan2(y,z)*180.0/PI; }
 float gyroPitchRate(float rx,float ry,float rz){ return -rx; }
 
 // distance channel = (encL + encR)/2  (verified for this robot)
-long readDist(){ long l,r; noInterrupts(); l=encL; r=encR; interrupts(); return (l + r)/2; }
+long readDist(){ 
+  long l,r; 
+  noInterrupts(); 
+  l=encL; 
+  r=encR; 
+  interrupts(); 
+  return (l + r)/2; 
+  }
 
 void setMotorRaw(int in1,int in2,int cmd){
   cmd=constrain(cmd,-255,255);
@@ -127,7 +146,9 @@ void enterPark(){
   moveState = IDLE;
   targetdriveLean = 0; targetturnBias = 0;
   driveLean = 0; turnBias = 0;
-  noInterrupts(); prevEncL = encL; prevEncR = encR; interrupts();  // fresh yaw-trim baseline
+  noInterrupts(); 
+  prevEncL = encL; 
+  prevEncR = encR; interrupts();  // fresh yaw-trim baseline
 }
 
 void startForward(){
@@ -173,9 +194,11 @@ float getEncoderYawCorrection(float movementCommand) {
   prevEncR = currentR;
 
   long diff = dL - dR;
+
   if (abs(diff) <= 1) return 0.0f;
 
   float kpYaw;
+
   if (movementCommand > 0.05f)       kpYaw = YAW_KP_FWD;
   else if (movementCommand < -0.05f) kpYaw = YAW_KP_BACK;
   else                               kpYaw = YAW_KP_STILL;
@@ -220,12 +243,22 @@ void setup(){
   angle=accelAngleDeg(ax,ay,az);
 
   PIDController_Init(&pid);
-  pid.Kp=6.9; pid.Ki=100.00; pid.Kd=0.7; pid.tau=DERIV_TAU;
-  pid.limMin=-U_MAX; pid.limMax=U_MAX;
-  pid.limMinInt=-I_MAX; pid.limMaxInt=I_MAX;
+
+  pid.Kp=6.9; 
+  pid.Ki=100.00; 
+  pid.Kd=0.7; 
+  
+  pid.tau=DERIV_TAU;
+  pid.limMin=-U_MAX;
+  pid.limMax=U_MAX;
+  pid.limMinInt=-I_MAX; 
+  pid.limMaxInt=I_MAX;
   resetPID();
 
-  noInterrupts(); prevEncL = encL; prevEncR = encR; interrupts();
+  noInterrupts(); 
+  prevEncL = encL; 
+  prevEncR = encR; 
+  interrupts();
 
   if(!BLE.begin()){ Serial.println("BLE FAIL"); while(1){} }
   BLE.setLocalName("BLE-DEVICE"); BLE.setDeviceName("BLE-DEVICE");
@@ -248,23 +281,33 @@ void controlStep(){
   if(dt<=0.0f || dt>0.1f) dt=0.01f;
 
   IMU.readGyroscope(gx,gy,gz);
+
   if(IMU.accelerationAvailable()) IMU.readAcceleration(ax,ay,az);
 
   float accAng=accelAngleDeg(ax,ay,az);
+
   float rate=gyroPitchRate(gx,gy,gz)-gyroBias;
+
   float k=TAU/(TAU+dt);
+
   angle=k*(angle+rate*dt)+(1.0-k)*accAng;
 
   // ---- move completion checks ----
   if(moveState==MOVING_FB){
+
     long traveled = readDist() - moveStartPos;
+
     if(labs(traveled) >= MOVE_TARGET_COUNTS) enterPark();    // reached 50 cm
+
   } else if(moveState==TURNING){
-    turnIntegral += (gz - gyroBiasZ) * dt;                   // integrate yaw deg
+
+    turnIntegral += (gz - gyroBiasZ) * dt;                 // integrate yaw deg
+
     if(fabs(turnIntegral) >= TURN_TARGET_DEG) enterPark();   // reached 45 deg
   }
 
   pid.T=dt;
+
   driveLean = moveToward(driveLean, targetdriveLean, LEAN_RAMP);
   turnBias  = moveToward(turnBias,  targetturnBias,  TURN_RAMP);
 
@@ -273,7 +316,10 @@ void controlStep(){
   if(moveState==IDLE){
     yawCorrection = getEncoderYawCorrection(driveLean);
   } else {
-    noInterrupts(); prevEncL = encL; prevEncR = encR; interrupts();  // keep baseline fresh during moves
+    noInterrupts(); 
+    prevEncL = encL; 
+    prevEncR = encR; 
+    interrupts();  // keep baseline fresh during moves
   }
 
   float setpoint = BASE_OFFSET + driveLean;
@@ -286,7 +332,8 @@ void controlStep(){
   if(armed && fabs(angle)<FALL_LIMIT){
     driveLR(uL,uR);
   } else {
-    coast(); resetPID();
+    coast(); 
+    resetPID();
     enterPark();
   }
 
@@ -305,8 +352,10 @@ void controlStep(){
 
 void loop(){
   BLEDevice central = BLE.central();
+
   if(central && central.connected()){
     digitalWrite(LED_BUILTIN,HIGH);
+    
     if(customCharacteristic.written()){
       int len=customCharacteristic.valueLength();
       const unsigned char* d=customCharacteristic.value();
