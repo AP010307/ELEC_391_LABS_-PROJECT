@@ -89,7 +89,7 @@ const float LEFT_MOTOR_SCALE  = 0.92f;
 const float RIGHT_MOTOR_SCALE = 1.00f;
 
 //MOVE TARGETS - DISTANCE
-const float COUNTS_PER_CM = 19.2f; //FINE TUNE
+const float COUNTS_PER_CM = 73.74f; //FINE TUNE
 const float MOVE_DIST_CM  = 50.0f;
 const long  MOVE_TARGET_COUNTS = (long)(MOVE_DIST_CM * COUNTS_PER_CM);
 

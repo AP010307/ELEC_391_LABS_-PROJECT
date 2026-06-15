@@ -95,12 +95,12 @@ const int ENC_SIGN_R = +1;
 // ============================================================
 //  ROBOT GEOMETRY
 // ============================================================
-const float COUNTS_PER_REV = 1920.0f;     // confirm for your gearmotor
+const float COUNTS_PER_REV = 480.0f;     // confirm for your gearmotor
 const float WHEEL_DIAMETER_CM = 8.024f;   // 80.24 mm
 const float WHEEL_CIRC_CM = PI * WHEEL_DIAMETER_CM;
 
 // Measure this: distance between left and right wheel contact centers.
-const float WHEEL_BASE_CM = 24.3f;        // EDIT after measuring
+const float WHEEL_BASE_CM = 25.3f;        // EDIT after measuring
 
 // ============================================================
 //  LOOP / IMU FILTER
@@ -142,7 +142,7 @@ const float RIGHT_MOTOR_SCALE = 1.00f;
 // ============================================================
 //  INNER BALANCE PID CONFIG
 // ============================================================
-const float BASE_OFFSET = 0.875f;
+const float BASE_OFFSET = 0.9f;
 const int OUTPUT_SIGN = -1;
 
 const float FALL_LIMIT = 35.0f;
@@ -155,8 +155,8 @@ PIDController pid;
 // ============================================================
 //  DRIVE / TURN COMMAND SETTINGS
 // ============================================================
-const float FWD_LEAN_FWD  =  0.4f;
-const float FWD_LEAN_BACK = -0.5f;
+const float FWD_LEAN_FWD  =  0.2f;
+const float FWD_LEAN_BACK = -0.3f;
 
 const float LEFTTURN  = 5.0f;
 const float RIGHTTURN = 6.0f;
@@ -199,13 +199,17 @@ float prevHoldErrorCm = 0.0f;
 // ============================================================
 const float MOVE_DISTANCE_CM = 50.0f;
 const float MOVE_STOP_TOL_CM = 3.0f;
-const float MOVE_STOP_SPEED_CM_S = 1.5f;
+const float MOVE_STOP_SPEED_CM_S = 3.0f;
 
-const float MOVE_KP = 0.045f;       // deg/cm
-const float MOVE_KD = 0.020f;       // deg/(cm/s)
-const float MOVE_LEAN_MAX = 1.3f;   // deg
+const float MOVE_SPEED_MAX_CM_S = 12.0f;     // requirement is at least 10 cm/s
+const float MOVE_POS_TO_SPEED_KP = 0.8f;     // position error -> target speed
+const float MOVE_SPEED_KP = 0.040f;          // speed error -> lean angle
+const float MOVE_LEAN_MAX = 0.65f;           // safer than 0.9 at first
 
 float moveTargetCm = 0.0f;
+float prevMovePosCm = 0.0f;
+float moveVelCmS = 0.0f;
+float targetSpeedCmS = 0.0f;
 float prevMoveErrorCm = 0.0f;
 
 // ============================================================
@@ -436,7 +440,9 @@ void startMove(float distanceCm) {
   float currentPos = getPositionCm();
 
   moveTargetCm = currentPos + distanceCm;
-  prevMoveErrorCm = 0.0f;
+  prevMovePosCm = currentPos;
+  moveVelCmS = 0.0f;
+  targetSpeedCmS = 0.0f;
 
   targetturnBias = 0.0f;
   turnBias = 0.0f;
@@ -453,10 +459,14 @@ void startMove(float distanceCm) {
 void startTurn(float angleDeg) {
   turnStartHeadingDeg = getHeadingDeg();
   turnTargetHeadingDeg = turnStartHeadingDeg + angleDeg;
-  prevHeadingErrorDeg = 0.0f;
+
+  // Avoid derivative kick on first turn step
+  prevHeadingErrorDeg = turnTargetHeadingDeg - turnStartHeadingDeg;
 
   targetdriveLean = 0.0f;
   driveLean = 0.0f;
+
+  resetYawMemory();
 
   if (angleDeg > 0) {
     mode = MODE_TURN_RIGHT_45;
@@ -556,7 +566,7 @@ void setup() {
   // Your current working balance gains
   pid.Kp = 6.9f;
   pid.Ki = 100.0f;
-  pid.Kd = 1.1f;
+  pid.Kd = 0.7f;
   pid.tau = DERIV_TAU;
 
   pid.limMin = -U_MAX;
@@ -635,20 +645,34 @@ void controlStep() {
     turnBiasCmd = 0.0f;
   }
 
-  else if (mode == MODE_MOVE_FWD_50 || mode == MODE_MOVE_BACK_50) {
-    posErrorCm = moveTargetCm - posCm;
-    posVelCmS = (posErrorCm - prevMoveErrorCm) / dt;
-    prevMoveErrorCm = posErrorCm;
+else if (mode == MODE_MOVE_FWD_50 || mode == MODE_MOVE_BACK_50) {
+  posErrorCm = moveTargetCm - posCm;
 
-    driveLeanCmd = MOVE_KP * posErrorCm + MOVE_KD * posVelCmS;
-    driveLeanCmd = constrain(driveLeanCmd, -MOVE_LEAN_MAX, MOVE_LEAN_MAX);
+  // Actual robot velocity
+  moveVelCmS = (posCm - prevMovePosCm) / dt;
+  prevMovePosCm = posCm;
 
+  // As it approaches the target, target speed automatically decreases
+  targetSpeedCmS = MOVE_POS_TO_SPEED_KP * posErrorCm;
+  targetSpeedCmS = constrain(targetSpeedCmS,
+                             -MOVE_SPEED_MAX_CM_S,
+                              MOVE_SPEED_MAX_CM_S);
+
+  // Lean based on speed error
+  float speedErrorCmS = targetSpeedCmS - moveVelCmS;
+
+  driveLeanCmd = MOVE_SPEED_KP * speedErrorCmS;
+  driveLeanCmd = constrain(driveLeanCmd, -MOVE_LEAN_MAX, MOVE_LEAN_MAX);
+
+  turnBiasCmd = 0.0f;
+
+  if (fabs(posErrorCm) < MOVE_STOP_TOL_CM &&
+      fabs(moveVelCmS) < MOVE_STOP_SPEED_CM_S) {
+    enterHoldMode();
+    driveLeanCmd = 0.0f;
     turnBiasCmd = 0.0f;
-
-    if (fabs(posErrorCm) < MOVE_STOP_TOL_CM && fabs(posVelCmS) < MOVE_STOP_SPEED_CM_S) {
-      enterHoldMode();
-    }
   }
+}
 
   else if (mode == MODE_TURN_LEFT_45 || mode == MODE_TURN_RIGHT_45) {
     headingErrorDeg = turnTargetHeadingDeg - headingDeg;
@@ -661,14 +685,24 @@ void controlStep() {
     turnBiasCmd = constrain(turnBiasCmd, -TURN_BIAS_MAX, TURN_BIAS_MAX);
 
     if (fabs(headingErrorDeg) < TURN_STOP_TOL_DEG) {
-      enterHoldMode();
+        enterHoldMode();
+        driveLeanCmd = 0.0f;
+        turnBiasCmd = 0.0f;
     }
   }
 
   targetdriveLean = driveLeanCmd;
   targetturnBias = turnBiasCmd;
 
-  driveLean = moveToward(driveLean, targetdriveLean, LEAN_RAMP);
+  float leanRampNow;
+
+  if (mode == MODE_HOLD) {
+    leanRampNow = LEAN_RAMP;       // keep stationary smooth
+    } else {
+    leanRampNow = 0.03f;           // brake faster during movement
+  } 
+
+driveLean = moveToward(driveLean, targetdriveLean, leanRampNow);
   turnBias  = moveToward(turnBias,  targetturnBias,  TURN_RAMP);
 
   // -------------------- Inner balance PID --------------------
