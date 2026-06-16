@@ -333,7 +333,7 @@ void startTurnInner(float angleDeg) {
 //  SEQUENCE HELPERS
 void startPause(SequenceStep nextStep, unsigned long durationMs) {
   enterHoldMode();
-  pauseStartMs = micros();
+  pauseStartMs = millis();
   seqStep      = nextStep;
 }
 
